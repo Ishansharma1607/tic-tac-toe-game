@@ -1,0 +1,133 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tic Tac Toe</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 100px);
+            grid-template-rows: repeat(3, 100px);
+            gap: 5px;
+        }
+        .cell {
+            width: 100px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            font-size: 2em;
+            cursor: pointer;
+        }
+        .cell.disabled {
+            pointer-events: none;
+        }
+        .status {
+            margin-top: 20px;
+            font-size: 1.5em;
+        }
+        .reset {
+            margin-top: 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div>
+        <div class="board" id="board"></div>
+        <div class="status" id="status"></div>
+        <button class="reset" id="reset">Reset</button>
+    </div>
+    <script>
+        const boardElement = document.getElementById('board');
+        const statusElement = document.getElementById('status');
+        const resetButton = document.getElementById('reset');
+
+        let currentPlayer = 'X';
+
+        async function fetchState() {
+            const response = await fetch('http://localhost:8000/state');
+            return response.json();
+        }
+
+        async function makeMove(position) {
+            const response = await fetch('http://localhost:8000/move', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ player: currentPlayer, position })
+            });
+            return response.json();
+        }
+
+        async function resetGame() {
+            const response = await fetch('http://localhost:8000/reset', {
+                method: 'POST'
+            });
+            return response.json();
+        }
+
+        function renderBoard(board) {
+            boardElement.innerHTML = '';
+            board.forEach((cell, index) => {
+                const cellElement = document.createElement('div');
+                cellElement.classList.add('cell');
+                if (cell) {
+                    cellElement.textContent = cell;
+                    cellElement.classList.add('disabled');
+                }
+                cellElement.addEventListener('click', async () => {
+                    const state = await makeMove(index);
+                    updateGame(state);
+                });
+                boardElement.appendChild(cellElement);
+            });
+        }
+
+        function updateGame(state) {
+            renderBoard(state.board);
+            currentPlayer = state.current_player;
+            if (state.winner) {
+                statusElement.textContent = `Player ${state.winner} wins!`;
+                disableBoard();
+            } else if (state.draw) {
+                statusElement.textContent = 'It's a draw!';
+                disableBoard();
+            } else {
+                statusElement.textContent = `Player ${currentPlayer}'s turn`;
+            }
+        }
+
+        function disableBoard() {
+            document.querySelectorAll('.cell').forEach(cell => {
+                cell.classList.add('disabled');
+            });
+        }
+
+        resetButton.addEventListener('click', async () => {
+            const state = await resetGame();
+            updateGame(state);
+        });
+
+        (async () => {
+            const state = await fetchState();
+            updateGame(state);
+        })();
+    </script>
+</body>
+</html>
